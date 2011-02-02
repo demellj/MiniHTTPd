@@ -12,10 +12,10 @@ public class Test {
 		server.setResponder(new Responder() {
 			@Override
 			public Response respond(Request req) {
-				return Response.Factory.new200("<b>path:</b>&nbsp;" + req.path + "</br>" + req.headers);
+				return Response.Factory.new200("<b>path:</b>&nbsp;" + req.path + "</br><b>type:</b> " + req.type + "</br>" + req.headers);
 			}
 		});
 		
-		server.startup();
+		server.startup(4);
 	}
 }

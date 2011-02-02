@@ -12,8 +12,9 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class MiniHTTPd {
-	
 	private int miPort = 9000;
+	private int miNumWorkers = 8;
+	
 	private ServerSocket mSocket = null;
 	private Thread serverThread = null;
 	private boolean mRunServer = true;
@@ -22,13 +23,18 @@ public class MiniHTTPd {
 	private ReentrantLock mCtrlLock = new ReentrantLock();
 	private ExecutorService pool = null;
 	
-	private Responder mResponder = null;
+	private Responder mResponder = new Responder() {
+		@Override
+		public Response respond(Request req) {
+			return Response.Factory.new404();
+		}
+	};
 	
 	private Runnable server = new Runnable() {
 		@Override
 		public void run() {
 			if (mSocket == null) return;
-			pool = Executors.newFixedThreadPool(16);
+			pool = Executors.newFixedThreadPool(miNumWorkers);
 			System.out.println("*** Server started");
 			
 			while (true) {
@@ -45,12 +51,11 @@ public class MiniHTTPd {
 				try {
 					System.out.println("*** Waiting for client!");
 					Socket client = mSocket.accept();
-					if (mResponder == null) {
-						client.close();
-						continue;
-					}
 					Request req = Request.Parser.parse(client.getInputStream());
-					pool.execute(new Worker(client, req));
+					if (req != null)
+						pool.execute(new Worker(client, req));
+					else
+						client.close();
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
@@ -79,15 +84,16 @@ public class MiniHTTPd {
 				mRespRWLock.readLock().unlock();
 			}
 			
-			if (resp != null) {
-				PrintWriter out;
-				try {
-					out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(mClient.getOutputStream())));
+			try {
+				PrintWriter out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(mClient.getOutputStream())));
+				if (resp != null) {
 					out.print(resp.getRawText());
-					out.flush();
-				} catch (IOException e) {
-					e.printStackTrace();
+				} else {
+					out.print(Response.Factory.new404().getRawText());
 				}
+				out.flush();
+			} catch (IOException e) {
+				e.printStackTrace();
 			}
 			
 			try {
@@ -98,19 +104,34 @@ public class MiniHTTPd {
 		}
 	}
 	
+	/**
+	 * Creates a new http server bound to the specified port.
+	 * 
+	 * @param port
+	 * @throws IOException
+	 */
 	public MiniHTTPd(int port) throws IOException {
 		miPort = port;
 		mSocket = new ServerSocket(miPort);
 	}
 	
-	public void startup() {
+	/**
+	 * Start serving. Employs workers to manage requests.
+	 * 
+	 * @param numWorkers number of workers to employ
+	 */
+	public void startup(int numWorkers) {
 		if (serverThread != null && serverThread.isAlive()) return;
 		
+		miNumWorkers = numWorkers;
 		mRunServer = true;
 		serverThread = new Thread(server);
 		serverThread.start();
 	}
 	
+	/**
+	 * Stop serving. Frees all workers.
+	 */
 	public void shutdown() {
 		mCtrlLock.lock(); try {
 			mRunServer = false;
@@ -118,16 +139,41 @@ public class MiniHTTPd {
 			mCtrlLock.unlock();
 		}
 		
-		mResponder = null;
 		serverThread = null;
 		pool.shutdown();
+		pool = null;
 	}
 	
+	/**
+	 * Change the server's responder. 
+	 * 
+	 * @param resp Used by workers to manage requests.
+	 */
 	public void setResponder(Responder resp) {
 		mRespRWLock.writeLock().lock(); try {
-			mResponder = resp;
+			if (resp == null) {
+				mResponder = new Responder() {
+					@Override
+					public Response respond(Request req) {
+						return Response.Factory.new404();
+					}
+				};
+			} else {
+				mResponder = resp;
+			}
 		} finally {
 			mRespRWLock.writeLock().unlock();
+		}
+	}
+	
+	/**
+	 * Unbinds this server from the given port.
+	 * @throws IOException
+	 */
+	public void unbind() throws IOException {
+		if (mSocket != null && mSocket.isBound()) {
+			mSocket.close();
+			mSocket = null;
 		}
 	}
 }

@@ -14,9 +14,9 @@ public class Request {
 		
 		public static Type fromString(String s) {
 			final String ls = s.toUpperCase();
-			if (ls.equals("get"))
+			if (ls.equals("GET"))
 				return GET;
-			if (ls.equals("post"))
+			if (ls.equals("POST"))
 				return POST;
 			return null;
 		}
