@@ -12,7 +12,7 @@ public class Test {
 		server.setResponder(new Responder() {
 			@Override
 			public Response respond(Request req) {
-				return Response.Factory.new200("<h1>Hello world</h1>");
+				return Response.Factory.new200("<b>path:</b>&nbsp;" + req.path + "</br>" + req.headers);
 			}
 		});
 		

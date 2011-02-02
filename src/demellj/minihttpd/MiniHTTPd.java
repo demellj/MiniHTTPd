@@ -84,9 +84,7 @@ public class MiniHTTPd {
 				try {
 					out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(mClient.getOutputStream())));
 					out.print(resp.getRawText());
-					out.close();
-					
-					System.out.println(resp.getRawText());
+					out.flush();
 				} catch (IOException e) {
 					e.printStackTrace();
 				}

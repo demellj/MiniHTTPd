@@ -8,4 +8,8 @@ public class Option {
 		this.key = key;
 		this.value = value;
 	}
+	
+	public String toString() {
+		return this.key + ": " + this.value;
+	}
 }
