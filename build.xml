@@ -1,0 +1,54 @@
+<project name="MiniHTTPd" default="compile" basedir=".">
+  <description>A lightweight embedded http server in Java</description>
+  <property name="src"     location="src"/>
+  <property name="doc"     location="doc"/>
+  <property name="build"   location="bin"/>
+  <property name="dist"    location="dist"/>
+  <property name="lib"     location="lib"/>
+
+  <property name="jarname" value="MiniHTTPd.jar"/>
+
+  <target name="compile" description="Compiles the source">
+    <mkdir dir="${build}"/>
+    <javac listfiles="true" srcdir="${src}" destdir="${build}">
+      <classpath> 
+        <pathelement path="${classpath}"/> 
+        <!--
+        <fileset dir="${lib}"> 
+          <include name="*.jar"/> 
+        </fileset> 
+        -->
+      </classpath> 
+    </javac>
+  </target>
+
+  <target name="javadoc" description="Generates javadocs">
+    <mkdir dir="${doc}"/>
+    <javadoc sourcepath="${src}" destdir="${doc}"/>
+  </target>
+
+  <target name="dist" depends="compile" description="Generates jar file" >
+    <mkdir dir="${dist}"/>
+    <jar destfile="${dist}/${jarname}" basedir="${build}" includes="**/*.class">
+      <manifest>
+        <attribute name="Main-Class" value="demellj.Test"/>
+      </manifest>
+    </jar>
+  </target>
+
+  <target name="run" depends="dist" description="Runs the Test example">
+    <java jar="${dist}/${jarname}" fork="true"/>
+  </target>
+
+  <target name="clean" description="Removes generated files or directories">
+    <delete dir="${build}"/>
+    <delete dir="${dist}"/>
+    <delete dir="${doc}"/>
+  </target>
+
+  <target name="help" description="Prints this help">
+    <exec executable="ant">
+      <arg value="-p"/>
+    </exec>
+  </target>
+</project>
