@@ -35,7 +35,6 @@ public class MiniHTTPd {
 		public void run() {
 			if (mSocket == null) return;
 			pool = Executors.newFixedThreadPool(miNumWorkers);
-			System.out.println("*** Server started");
 			
 			while (true) {
 				// Check to quit server
@@ -49,7 +48,6 @@ public class MiniHTTPd {
 				}
 				
 				try {
-					System.out.println("*** Waiting for client!");
 					Socket client = mSocket.accept();
 					Request req = Request.Parser.parse(client.getInputStream());
 					if (req != null)
@@ -74,8 +72,6 @@ public class MiniHTTPd {
 		
 		@Override
 		public void run() {
-			System.out.println("*** Worker " + Thread.currentThread().getName() + " serving client " + mClient.getInetAddress().getHostName()  + "/" + mClient.getPort());
-			
 			Response resp = null;
 			
 			mRespRWLock.readLock().lock(); try {
