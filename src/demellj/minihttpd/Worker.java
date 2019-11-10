@@ -133,11 +133,12 @@ public class Worker implements Runnable {
 
         final var out = client.getOutBuffer();
 
-        final var chunk_len = Math.min(data.length, out.remaining());
+        var chunk_len = Math.min(data.length, out.capacity());
 
         int sent_bytes = 0;
         while (sent_bytes < data.length && chan.isOpen()) {
-            out.put(data, sent_bytes, Math.min(chunk_len, data.length - sent_bytes));
+            out.clear();
+            out.put(data, sent_bytes, chunk_len);
             out.flip();
 
             var sent = 0;
@@ -146,6 +147,8 @@ public class Worker implements Runnable {
             } while (sent < chunk_len && chan.isOpen());
 
             sent_bytes += sent;
+
+            chunk_len = Math.min(data.length - sent_bytes, chunk_len);
         }
         out.clear();
     }

@@ -78,9 +78,15 @@ public class LineBuffer implements Iterable<String> {
             while (charBuffer.hasRemaining()) {
                 final char ch = charBuffer.get();
 
-                if (ch == '\r') continue;
+                if (ch == '\r') {
+                    lineBuffer.append(ch);
+                    continue;
+                }
 
-                if (ch == '\n') {
+                if (ch == '\n' && lineBuffer.length() > 0 &&
+                        lineBuffer.charAt(lineBuffer.length() - 1) == '\r') {
+
+                    lineBuffer.deleteCharAt(lineBuffer.length() - 1);
                     lines.add(lineBuffer.toString());
                     lineBuffer.delete(0, lineBuffer.length());
                 } else {
