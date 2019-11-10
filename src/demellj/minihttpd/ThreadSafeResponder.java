@@ -9,7 +9,8 @@ public class ThreadSafeResponder implements Responder {
     private Responder responder = null;
 
     public void setResponder(Responder resp) {
-        lock.writeLock().lock(); try {
+        lock.writeLock().lock();
+        try {
             responder = resp;
         } finally {
             lock.writeLock().unlock();
@@ -18,7 +19,8 @@ public class ThreadSafeResponder implements Responder {
 
     @Override
     public Response respond(Request req) {
-        lock.readLock().lock(); try {
+        lock.readLock().lock();
+        try {
             final Responder responder = this.responder;
             if (responder != null)
                 return responder.respond(req);

@@ -23,14 +23,14 @@ public class SessionCleanupWorker implements Runnable {
     public void run() {
         while (isRunning.get()) {
             for (final var pair : sessions.entrySet()) {
-                final var chan   = pair.getKey();
+                final var chan = pair.getKey();
                 final var client = pair.getValue();
 
-                final long now = System.nanoTime()/1000000;
+                final long now = System.nanoTime() / 1000000;
                 final long elapsed = now - client.getLastActivity();
 
                 if (client.getSupportsKeepAlive() &&
-                        (elapsed > KEEP_ALIVE_SEC*1000 || client.getNumRequests() > MAX_PERSISTENT_REQ)) {
+                        (elapsed > KEEP_ALIVE_SEC * 1000 || client.getNumRequests() > MAX_PERSISTENT_REQ)) {
                     sessions.remove(chan);
                     try {
                         final String addr = chan.getRemoteAddress().toString();
@@ -44,8 +44,9 @@ public class SessionCleanupWorker implements Runnable {
             }
 
             try {
-                Thread.sleep(KEEP_ALIVE_SEC/2);
-            } catch (InterruptedException ignored) { }
+                Thread.sleep(KEEP_ALIVE_SEC / 2);
+            } catch (InterruptedException ignored) {
+            }
         }
     }
 }

@@ -42,7 +42,7 @@ public class Client {
 
     public void updateActivity() {
         numRequests.incrementAndGet();
-        lastActivity.set(System.nanoTime()/1000000);
+        lastActivity.set(System.nanoTime() / 1000000);
     }
 
     public long getLastActivity() {

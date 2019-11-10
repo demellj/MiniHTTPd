@@ -27,7 +27,7 @@ public class Worker implements Runnable {
 
     @Override
     public void run() {
-        while(isRunning.get()) {
+        while (isRunning.get()) {
             try {
                 selector.select((key) -> {
                     if (key.isValid()) {
@@ -61,7 +61,7 @@ public class Worker implements Runnable {
     }
 
     private void performClientDisconnected(SocketChannel ch) {
-        sessions.remove((SocketChannel) ch);
+        sessions.remove(ch);
         try {
             final String addr = ch.getRemoteAddress().toString();
             System.err.println(String.format("%s disconnected", addr));
@@ -98,8 +98,8 @@ public class Worker implements Runnable {
                     client.updateActivity();
                     resp.putHeader("Connection", "keep-alive");
                     resp.putHeader("Keep-Alive", String.format("timeout=%d, max=%d",
-                                    SessionCleanupWorker.KEEP_ALIVE_SEC,
-                                    SessionCleanupWorker.MAX_PERSISTENT_REQ));
+                            SessionCleanupWorker.KEEP_ALIVE_SEC,
+                            SessionCleanupWorker.MAX_PERSISTENT_REQ));
                 } else {
                     resp.putHeader("Connection", "close");
                 }
@@ -140,7 +140,7 @@ public class Worker implements Runnable {
             out.put(data, sent_bytes, Math.min(chunk_len, data.length - sent_bytes));
             out.flip();
 
-            var sent =  0;
+            var sent = 0;
             do {
                 sent += chan.write(out);
             } while (sent < chunk_len && chan.isOpen());
