@@ -12,7 +12,10 @@ public class Test {
 		server.setResponder(new Responder() {
 			@Override
 			public Response respond(Request req) {
-				return Response.Factory.new200("<b>path:</b>&nbsp;" + req.path + "</br><b>type:</b> " + req.type + "</br>" + req.headers);
+				if (req.path.equals("/favicon.ico"))
+					return Response.Factory.new404();
+				else
+					return Response.Factory.new200("<b>path:</b>&nbsp;" + req.path + "</br><b>type:</b> " + req.type + "</br>" + req.headers);
 			}
 		});
 		

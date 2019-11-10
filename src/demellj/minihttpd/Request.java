@@ -1,14 +1,7 @@
 package demellj.minihttpd;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.TreeMap;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 
 public class Request {
@@ -35,14 +28,14 @@ public class Request {
 	
 	public final Type               type;
 	public final String             path;
-	public final List<Option>       headers;
+	public final Map<String,String> headers;
     public final String             query;
     public final Map<String,String> urlparams;
-	
-	public Request(Type type, String path, List<Option> options) {
+
+	public Request(Type type, String path, Map<String, String> headers) {
 		this.type = type;
 		this.path = path;
-		this.headers = options;
+		this.headers = headers;
 
         this.urlparams = new TreeMap<String,String>();
 
@@ -55,8 +48,8 @@ public class Request {
 
                 if (pidx >= 0 && pidx < param.length()) {
                     try {
-                        final String key = java.net.URLDecoder.decode(param.substring(0,pidx), "UTF-8");
-                        final String val = java.net.URLDecoder.decode(param.substring(pidx+1), "UTF-8");
+                        final String key = java.net.URLDecoder.decode(param.substring(0,pidx), StandardCharsets.UTF_8);
+                        final String val = java.net.URLDecoder.decode(param.substring(pidx+1), StandardCharsets.UTF_8);
 
                         this.urlparams.put(key, val);
                     } catch (Exception e) { }
@@ -66,37 +59,45 @@ public class Request {
             this.query = "";
         }
 	}
-	
+
 	public static class Parser {
-		public static Request parse(InputStream in) {
-			BufferedReader bin = new BufferedReader(new InputStreamReader(in));
-			
-			try {
-				String buff = bin.readLine();
-				
-				if (buff == null) return null;
-				
-				String[] words = buff.split(" +");
-				
+		public static Request parse(LineBuffer buffer) {
+			if (hasCompleteMessage(buffer)) {
+				String line = buffer.nextLine();
+
+				if (line == null || line.isEmpty()) return null;
+
+				String[] words = line.split(" +");
+
+				if (words.length < 2) return null;
+
 				final Type type = Type.fromString(words[0]);
 				final String path = words[1];
-				
-				List<Option> opts = new ArrayList<Option>();
-				
-				while (bin.ready() && (buff = bin.readLine()) != null) {
-					words = buff.split(": +");
-					
-					if (words != null && words.length > 1)
-						opts.add(new Option(words[0], words[1]));
+
+				Map<String, String> opts = new TreeMap<>();
+
+				while ((line = buffer.nextLine()) != null && !line.isEmpty()) {
+				    final int idx = line.indexOf(":");
+
+					if (idx >= 0) {
+						opts.put(line.substring(0, idx).trim().toLowerCase(),
+								line.substring(idx + 1, line.length()).trim());
+					}
 				}
-				
+
 				return new Request(type, path, opts);
-			} catch (IOException e) {
-				e.printStackTrace();
 			}
-			
+
 			return null;
 		}
-		
+
+		// Search for an empty line terminated with: \r\n
+		private static boolean hasCompleteMessage(LineBuffer buffer) {
+			for (final String line : buffer) {
+			    if (line.isEmpty()) return true;
+			}
+
+			return false;
+		}
 	}
 }
