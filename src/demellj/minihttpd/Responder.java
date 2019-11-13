@@ -1,5 +1,5 @@
 package demellj.minihttpd;
 
 public interface Responder {
-    Response respond(Request req);
+    void respond(Request req, ResponseWriter writer);
 }

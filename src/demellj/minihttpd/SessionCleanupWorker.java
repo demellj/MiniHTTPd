@@ -3,6 +3,7 @@ package demellj.minihttpd;
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SocketChannel;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -22,9 +23,9 @@ public class SessionCleanupWorker implements Runnable {
     @Override
     public void run() {
         while (isRunning.get()) {
-            for (final var pair : sessions.entrySet()) {
-                final var chan = pair.getKey();
-                final var client = pair.getValue();
+            for (final Map.Entry<SocketChannel, Client> pair : sessions.entrySet()) {
+                final SocketChannel chan = pair.getKey();
+                final Client client = pair.getValue();
 
                 final long now = System.nanoTime() / 1000000;
                 final long elapsed = now - client.getLastActivity();

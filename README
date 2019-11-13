@@ -1,23 +1,43 @@
-A lightweight embedded http server in Java.
+A lightweight embedded http server in Java 8+
 
 Example:
 
+    import demellj.minihttpd.HTTPStatus;
     import demellj.minihttpd.MiniHTTPd;
-    import demellj.minihttpd.Request;
-    import demellj.minihttpd.Responder;
-    import demellj.minihttpd.Response;
-    
+    import demellj.minihttpd.response.IllegalBuilderStateException;
+
+    import java.io.File;
+    import java.io.IOException;
+    import java.nio.charset.StandardCharsets;
+
     public class Test {
         public static void main(String[] args) throws Exception {
-            MiniHTTPd server = new MiniHTTPd(9000);
-            
-            server.setResponder(new Responder() {
-                @Override
-                public Response respond(Request req) {
-                    return Response.Factory.new200("<b>path:</b>&nbsp;" + req.path + "</br><b>type:</b> " + req.type + "</br>" + req.headers);
+            final MiniHTTPd server = new MiniHTTPd(9000);
+
+            final String cwd = new File(".").getCanonicalPath();
+
+            server.setResponder((req, writer) -> {
+                try {
+                    if (req.path.equals("/favicon.ico")) {
+                        writer.begin(HTTPStatus.HTTP_404)
+                              .emptyBody();
+                    } else {
+                        writer.begin(HTTPStatus.HTTP_200)
+                              .writeContentType("text/html; charset=UTF-8")
+                              .textBodyChunked(StandardCharsets.UTF_8)
+                              .write("<b>path:</b> ")
+                              .write(req.path)
+                              .write("</br><b>type:</b> ")
+                              .write(req.type.toString())
+                              .write("</br>")
+                              .write(req.headers.toString())
+                              .complete();
+                    }
+                } catch (IOException | IllegalBuilderStateException e) {
+                    e.printStackTrace();
                 }
             });
-            
+
             server.startup(4);
         }
     }

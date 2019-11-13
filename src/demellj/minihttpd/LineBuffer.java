@@ -27,11 +27,11 @@ public class LineBuffer implements Iterable<String> {
     }
 
     public synchronized int read(ReadableByteChannel in) throws IOException {
-        var totalBytesRead = 0;
+        int totalBytesRead = 0;
 
         while (true) {
             buffer.clear();
-            final var bytesRead = in.read(buffer);
+            final int bytesRead = in.read(buffer);
 
             if (bytesRead < 0)
                 return -1;

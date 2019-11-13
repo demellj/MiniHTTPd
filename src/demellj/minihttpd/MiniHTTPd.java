@@ -3,7 +3,10 @@ package demellj.minihttpd;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
-import java.nio.channels.*;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -36,7 +39,6 @@ public class MiniHTTPd {
             serverChannel = ServerSocketChannel.open();
             serverChannel.bind(new InetSocketAddress(port));
             serverChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
-            serverChannel.setOption(StandardSocketOptions.SO_REUSEPORT, true);
             serverChannel.configureBlocking(false);
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
         } catch (IOException ioe) {

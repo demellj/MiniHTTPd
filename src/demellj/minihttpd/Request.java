@@ -1,8 +1,8 @@
 package demellj.minihttpd;
 
 import java.nio.charset.StandardCharsets;
-import java.util.*;
-
+import java.util.Map;
+import java.util.TreeMap;
 
 public class Request {
     public enum Type {
@@ -50,8 +50,8 @@ public class Request {
 
                 if (pidx >= 0 && pidx < param.length()) {
                     try {
-                        final String key = java.net.URLDecoder.decode(param.substring(0, pidx), StandardCharsets.UTF_8);
-                        final String val = java.net.URLDecoder.decode(param.substring(pidx + 1), StandardCharsets.UTF_8);
+                        final String key = java.net.URLDecoder.decode(param.substring(0, pidx), StandardCharsets.UTF_8.name());
+                        final String val = java.net.URLDecoder.decode(param.substring(pidx + 1), StandardCharsets.UTF_8.name());
 
                         this.urlparams.put(key, val);
                     } catch (Exception e) {
