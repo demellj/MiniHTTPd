@@ -37,6 +37,6 @@ public class ResponseWriter {
 
         client.writeChars(CharBuffer.wrap(builder), utf8Encoder);
 
-        return new HeaderWriter(client, state, injectedHeaders, utf8Encoder);
+        return new HeaderWriterImpl(client, state, injectedHeaders, utf8Encoder);
     }
 }

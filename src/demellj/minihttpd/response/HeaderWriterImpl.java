@@ -1,6 +1,7 @@
 package demellj.minihttpd.response;
 
 import demellj.minihttpd.Client;
+import demellj.minihttpd.HeaderWriter;
 import demellj.minihttpd.OctetStreamWriter;
 import demellj.minihttpd.TextStreamWriter;
 
@@ -15,22 +16,23 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.TreeMap;
 
-public class HeaderWriter {
+public class HeaderWriterImpl implements HeaderWriter {
     final private Client client;
     final private BuilderState state;
     final private CharsetEncoder utf8Encoder;
     final private TreeMap<String, String> injectedHeaders;
 
-    public HeaderWriter(Client client,
-                        BuilderState state,
-                        TreeMap<String, String> injectedHeaders,
-                        CharsetEncoder utf8Encoder) {
+    public HeaderWriterImpl(Client client,
+                            BuilderState state,
+                            TreeMap<String, String> injectedHeaders,
+                            CharsetEncoder utf8Encoder) {
         this.client = client;
         this.state = state;
         this.injectedHeaders = injectedHeaders;
         this.utf8Encoder = utf8Encoder;
     }
 
+    @Override
     public HeaderWriter writeContentType(String format) throws IOException, IllegalBuilderStateException {
         if (!state.inHeaders())
             throw new IllegalBuilderStateException(BuilderState.State.Headers, state);
@@ -38,6 +40,7 @@ public class HeaderWriter {
         return writeHeader("Content-Type", format);
     }
 
+    @Override
     public HeaderWriter writeContentLength(long numBytes) throws IOException, IllegalBuilderStateException {
         if (!state.inHeaders())
             throw new IllegalBuilderStateException(BuilderState.State.Headers, state);
@@ -45,6 +48,7 @@ public class HeaderWriter {
         return writeHeader("Content-Length", Long.toString(numBytes));
     }
 
+    @Override
     public HeaderWriter writeHeader(CharSequence key, CharSequence value) throws IOException, IllegalBuilderStateException {
         if (!state.inHeaders())
             throw new IllegalBuilderStateException(BuilderState.State.Headers, state);
@@ -52,6 +56,7 @@ public class HeaderWriter {
         return writeHeader(key, CharBuffer.wrap(value));
     }
 
+    @Override
     public HeaderWriter writeHeader(CharSequence key, CharBuffer valueBuffer)
             throws IOException, IllegalBuilderStateException {
 
@@ -66,6 +71,7 @@ public class HeaderWriter {
         return this;
     }
 
+    @Override
     public TextStreamWriter textBody(Charset charset, long numBytes) throws IOException, IllegalBuilderStateException {
         if (!state.inHeaders())
             throw new IllegalBuilderStateException(BuilderState.State.Headers, state);
@@ -77,6 +83,7 @@ public class HeaderWriter {
         return new TextStreamWriterImpl(client, state, charset);
     }
 
+    @Override
     public TextStreamWriter textBody(Charset charset) throws IOException, IllegalBuilderStateException {
         if (!state.inHeaders())
             throw new IllegalBuilderStateException(BuilderState.State.Headers, state);
@@ -86,6 +93,7 @@ public class HeaderWriter {
         return new BufferingTextStreamWriterImpl(client, utf8Encoder, state, charset);
     }
 
+    @Override
     public TextStreamWriter textBodyChunked(Charset charset) throws IOException, IllegalBuilderStateException {
         if (!state.inHeaders())
             throw new IllegalBuilderStateException(BuilderState.State.Headers, state);
@@ -97,6 +105,7 @@ public class HeaderWriter {
         return new ChunkedTextStreamWriterImpl(client, state, charset);
     }
 
+    @Override
     public OctetStreamWriter octetStreamBody(long numBytes) throws IOException, IllegalBuilderStateException {
         if (!state.inHeaders())
             throw new IllegalBuilderStateException(BuilderState.State.Headers, state);
@@ -108,6 +117,7 @@ public class HeaderWriter {
         return new OctetStreamWriterImpl(client, state);
     }
 
+    @Override
     public OctetStreamWriter octetStreamBody() throws IOException, IllegalBuilderStateException {
         if (!state.inHeaders())
             throw new IllegalBuilderStateException(BuilderState.State.Headers, state);
@@ -117,6 +127,7 @@ public class HeaderWriter {
         return new BufferingOctetStreamWriterImpl(client, utf8Encoder, state);
     }
 
+    @Override
     public OctetStreamWriter octetStreamBodyChunked() throws IOException, IllegalBuilderStateException {
         if (!state.inHeaders())
             throw new IllegalBuilderStateException(BuilderState.State.Headers, state);
@@ -128,6 +139,7 @@ public class HeaderWriter {
         return new ChunkedOctetStreamWriterImpl(client, utf8Encoder, state);
     }
 
+    @Override
     public void bodyFromChannel(ReadableByteChannel inChannel, long offset, long numBytes)
             throws IOException, IllegalBuilderStateException {
 
@@ -150,6 +162,7 @@ public class HeaderWriter {
         state.complete();
     }
 
+    @Override
     public void bodyFromChannel(ReadableByteChannel inChannel) throws IOException, IllegalBuilderStateException {
         if (!state.inHeaders())
             throw new IllegalBuilderStateException(BuilderState.State.Headers, state);
@@ -183,6 +196,7 @@ public class HeaderWriter {
         state.complete();
     }
 
+    @Override
     public void bodyFromFile(FileChannel inChannel, long offset, long numBytes)
             throws IOException, IllegalBuilderStateException {
 
@@ -198,6 +212,7 @@ public class HeaderWriter {
         state.complete();
     }
 
+    @Override
     public void emptyBody() throws IOException, IllegalBuilderStateException {
         if (!state.inHeaders())
             throw new IllegalBuilderStateException(BuilderState.State.Headers, state);
