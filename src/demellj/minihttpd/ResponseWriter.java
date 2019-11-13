@@ -26,8 +26,9 @@ public class ResponseWriter {
         injectedHeaders.put(key, value);
     }
 
-    public HeaderWriter begin(HTTPStatus status) throws IOException {
-        if (!state.inBegin()) return null;
+    public HeaderWriter begin(HTTPStatus status) throws IOException, IllegalBuilderStateException {
+        if (!state.inBegin())
+            throw new IllegalBuilderStateException(BuilderState.State.Begin, state);
 
         final StringBuilder builder = new StringBuilder();
         builder.append(protocol)
