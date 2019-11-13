@@ -4,15 +4,12 @@ import demellj.minihttpd.HTTPStatus;
 import demellj.minihttpd.MiniHTTPd;
 import demellj.minihttpd.response.IllegalBuilderStateException;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 public class Test {
     public static void main(String[] args) throws Exception {
         final MiniHTTPd server = new MiniHTTPd(9000);
-
-        final String cwd = new File(".").getCanonicalPath();
 
         server.setResponder((req, writer) -> {
             try {
