@@ -7,10 +7,13 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -18,7 +21,7 @@ public class MiniHTTPd {
     private AtomicBoolean isRunning = new AtomicBoolean(false);
 
     private ReadWriteLock mRespRWLock = new ReentrantReadWriteLock();
-    private ExecutorService pool = null;
+    private ArrayList<Thread> threadPool = new ArrayList<>();
 
     private Selector selector;
     private ServerSocketChannel serverChannel;
@@ -58,23 +61,34 @@ public class MiniHTTPd {
             if (isRunning.getAndSet(true))
                 return;
 
-            pool = Executors.newFixedThreadPool(numWorkers + 1);
-            for (int i = 0; i < numWorkers; ++i)
-                pool.submit(new Worker(sessions, isRunning, selector, safeResponder));
+            final WorkerSync sync = new WorkerSync(numWorkers);
 
-            pool.submit(new SessionCleanupWorker(sessions, isRunning));
+            for (int i = 1; i <= numWorkers; ++i) {
+                final Thread thread = new Thread(new Worker(sessions, isRunning, selector, safeResponder, sync));
+                thread.setName("Worker " + i);
+                threadPool.add(thread);
+                thread.start();
+            }
+
+            final Thread thread = new Thread(new SessionCleanupWorker(sessions, isRunning));
+            threadPool.add(thread);
+            thread.setName("Cleanup Worker");
+            thread.start();
         }
     }
 
     /**
      * Stop serving. Frees all workers.
      */
-    public void shutdown() {
+    public void shutdown() throws InterruptedException {
         isRunning.set(false);
         selector.wakeup();
 
-        pool.shutdown();
-        pool = null;
+        for (final Thread thread : threadPool) {
+            thread.join();
+        }
+
+        threadPool.clear();
     }
 
     /**

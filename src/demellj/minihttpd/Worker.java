@@ -16,35 +16,54 @@ public class Worker implements Runnable {
     private final AtomicBoolean isRunning;
     private final Selector selector;
     private final ThreadSafeResponder responder;
+    private final WorkerSync sync;
 
     Worker(ConcurrentHashMap<SocketChannel, Client> sessions,
            AtomicBoolean isRunning,
            Selector selector,
-           ThreadSafeResponder responder) {
+           ThreadSafeResponder responder,
+           WorkerSync sync) {
         this.sessions = sessions;
         this.isRunning = isRunning;
         this.selector = selector;
         this.responder = responder;
+        this.sync = sync;
     }
 
     @Override
     public void run() {
         while (isRunning.get()) {
             try {
-                if (selector.select() > 0) {
-                    final Set<SelectionKey> selectedKeys = selector.selectedKeys();
+                SelectableChannel ch = null;
 
-                    synchronized (selectedKeys) {
+                sync.signalAndWait();
+                if (selector.select() > 0) {
+                    // Synchronize on 'selector', but we are doing this to keep selectedKey
+                    // set in sync across workers.
+                    synchronized (selector) {
+                        final Set<SelectionKey> selectedKeys = selector.selectedKeys();
                         for (final SelectionKey key : selectedKeys) {
                             if (key.isValid()) {
-                                if (key.isAcceptable() && key.channel() instanceof ServerSocketChannel)
+                                // Perform "accept" while holding lock, to reduce unnecessary
+                                // contention between workers when a client connects.
+                                if (key.isAcceptable())
                                     performClientAccept((ServerSocketChannel) key.channel());
-                                else if (key.isReadable() && key.channel() instanceof SocketChannel)
-                                    performClientRead((SocketChannel) key.channel());
+
+                                if (key.isReadable()) {
+                                    ch = key.channel();
+
+                                    // cancellation is required to reduce worker contention
+                                    // it gets re-registered on clientRead completion
+                                    key.cancel();
+                                }
                             }
+                            break;
                         }
-                        selectedKeys.clear();
                     }
+
+                    // Perform IO without blocking other threads
+                    if (ch instanceof SocketChannel)
+                        performClientRead((SocketChannel) ch);
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -54,11 +73,12 @@ public class Worker implements Runnable {
 
     private void performClientAccept(ServerSocketChannel serverChannel) {
         try {
-            final SocketChannel clientChannel = serverChannel.accept();
-            clientChannel.configureBlocking(false);
-            clientChannel.register(selector, SelectionKey.OP_READ);
-            sessions.put(clientChannel, new Client(clientChannel));
-            System.err.println(String.format("%s connected", clientChannel.getRemoteAddress()));
+            final SocketChannel chan = serverChannel.accept();
+            if (chan != null && sessions.putIfAbsent(chan, new Client(chan)) == null) {
+                chan.configureBlocking(false);
+                chan.register(selector, SelectionKey.OP_READ);
+                System.err.println(String.format("%s connected", chan.getRemoteAddress()));
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -77,25 +97,31 @@ public class Worker implements Runnable {
     }
 
     private void performClientRead(SocketChannel chan) {
-        final Client client = sessions.get(chan);
+        final Client client = sessions.remove(chan);
 
         if (client == null) return;
 
         final LineBuffer lineBuffer = client.getBuffers().getLineBuffer();
 
         try {
+            final String addr = chan.getRemoteAddress().toString();
+            System.err.println(String.format("%s handled", addr));
+
             lineBuffer.read(chan);
+            lineBuffer.flush();
+
+            boolean keepAlive = false;
 
             Request req = null;
             while ((req = Request.Parser.parse(lineBuffer)) != null) {
                 final ResponseWriter writer = new ResponseWriter("HTTP/1.1", client);
 
                 final String connection = req.headers.get("connection");
-                final boolean canKeepAlive = connection != null && connection.toLowerCase().contains("keep-alive");
+                keepAlive = connection != null && connection.toLowerCase().contains("keep-alive");
 
                 writer.appendHeader("Server", "MiniHTTPd");
 
-                if (canKeepAlive) {
+                if (keepAlive) {
                     client.updateActivity();
                     writer.appendHeader("Connection", "keep-alive");
                     writer.appendHeader("Keep-Alive", String.format("timeout=%d, max=%d",
@@ -112,19 +138,21 @@ public class Worker implements Runnable {
                     dte.printStackTrace();
                 }
 
-                try {
-                    responder.respond(req, writer);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-
-                if (canKeepAlive) {
-                    client.enableKeepAlive();
-                } else {
-                    performClientDisconnected(chan);
-                }
+                responder.respond(req, writer);
             }
-        } catch (IOException e) {
+
+            if (keepAlive) {
+                client.enableKeepAlive();
+                if (sessions.putIfAbsent(chan, client) == null) {
+                    sync.activate(); // block threads from waiting on select()
+                    selector.wakeup();
+                    chan.register(selector, SelectionKey.OP_READ);
+                    sync.signalAndWait(); // unblock reset asap
+                }
+            } else {
+                performClientDisconnected(chan);
+            }
+        } catch (Exception e) {
             performClientDisconnected(chan);
         }
     }
