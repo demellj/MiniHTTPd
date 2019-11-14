@@ -1,6 +1,8 @@
 package demellj.minihttpd;
 
-import demellj.minihttpd.response.*;
+import demellj.minihttpd.response.BuilderState;
+import demellj.minihttpd.response.HeaderWriterImpl;
+import demellj.minihttpd.response.IllegalBuilderStateException;
 
 import java.io.IOException;
 import java.nio.CharBuffer;
@@ -19,7 +21,7 @@ public class ResponseWriter {
 
     ResponseWriter(String protocol, Client client) {
         this.protocol = protocol;
-        this.client   = client;
+        this.client = client;
     }
 
     void appendHeader(String key, String value) {

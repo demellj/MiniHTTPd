@@ -23,30 +23,38 @@ public class SessionCleanupWorker implements Runnable {
     @Override
     public void run() {
         while (isRunning.get()) {
-            for (final Map.Entry<SocketChannel, Client> pair : sessions.entrySet()) {
-                final SocketChannel chan = pair.getKey();
-                final Client client = pair.getValue();
+            final Map.Entry<SocketChannel, Client> pair = sessions.searchEntries(1, entry -> {
+                final Client client = entry.getValue();
 
                 final long now = System.nanoTime() / 1000000;
                 final long elapsed = now - client.getLastActivity();
 
                 if (client.getSupportsKeepAlive() &&
-                        (elapsed > KEEP_ALIVE_SEC * 1000 || client.getNumRequests() > MAX_PERSISTENT_REQ)) {
-                    sessions.remove(chan);
-                    try {
-                        final String addr = chan.getRemoteAddress().toString();
-                        client.close();
-                        System.err.println(String.format("%s disconnected", addr));
-                    } catch (ClosedChannelException cce) {
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
+                        (elapsed > KEEP_ALIVE_SEC * 1000 ||
+                                client.getNumRequests() > MAX_PERSISTENT_REQ))
+                    return entry;
+                else
+                    return null;
+            });
 
-            try {
-                Thread.sleep(KEEP_ALIVE_SEC / 2);
-            } catch (InterruptedException ignored) {
+            if (pair != null) {
+                final SocketChannel chan = pair.getKey();
+                final Client client = pair.getValue();
+
+                sessions.remove(chan);
+                try {
+                    final String addr = chan.getRemoteAddress().toString();
+                    client.close();
+                    System.err.println(String.format("%s disconnected", addr));
+                } catch (ClosedChannelException cce) {
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            } else {
+                try {
+                    Thread.sleep(KEEP_ALIVE_SEC / 2);
+                } catch (InterruptedException ignored) {
+                }
             }
         }
     }

@@ -36,7 +36,6 @@ public class Worker implements Runnable {
             try {
                 SelectableChannel ch = null;
 
-                sync.signalAndWait();
                 selector.select();
 
                 // Synchronize on 'sync', simply because it is shared by all workers.
@@ -50,13 +49,10 @@ public class Worker implements Runnable {
                             if (key.isAcceptable())
                                 performClientAccept((ServerSocketChannel) key.channel());
 
-                            if (key.isReadable()) {
+                            if (key.isReadable())
                                 ch = key.channel();
 
-                                // cancellation is required to reduce worker contention
-                                // it gets re-registered on clientRead completion
-                                key.cancel();
-                            }
+                            selectedKeys.remove(key);
                         }
                         break;
                     }
@@ -143,12 +139,7 @@ public class Worker implements Runnable {
 
             if (keepAlive) {
                 client.enableKeepAlive();
-                if (sessions.putIfAbsent(chan, client) == null) {
-                    sync.activate(); // block threads from waiting on select()
-                    selector.wakeup();
-                    chan.register(selector, SelectionKey.OP_READ);
-                    sync.signalAndWait(); // unblock reset asap
-                }
+                sessions.put(chan, client);
             } else {
                 performClientDisconnected(chan);
             }

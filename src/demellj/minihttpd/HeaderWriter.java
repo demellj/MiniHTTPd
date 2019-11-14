@@ -31,12 +31,12 @@ public interface HeaderWriter {
     OctetStreamWriter octetStreamBodyChunked() throws IOException, IllegalBuilderStateException;
 
     void bodyFromChannel(ReadableByteChannel inChannel, long offset, long numBytes)
-                    throws IOException, IllegalBuilderStateException;
+            throws IOException, IllegalBuilderStateException;
 
     void bodyFromChannel(ReadableByteChannel inChannel) throws IOException, IllegalBuilderStateException;
 
     void bodyFromFile(FileChannel inChannel, long offset, long numBytes)
-                            throws IOException, IllegalBuilderStateException;
+            throws IOException, IllegalBuilderStateException;
 
     void emptyBody() throws IOException, IllegalBuilderStateException;
 }
