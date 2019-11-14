@@ -57,7 +57,7 @@ public class MiniHTTPd {
             if (isRunning.getAndSet(true))
                 return;
 
-            final WorkerSync sync = new WorkerSync(numWorkers);
+            final Object sync = new Object();
 
             for (int i = 1; i <= numWorkers; ++i) {
                 final Thread thread = new Thread(new Worker(sessions, isRunning, selector, safeResponder, sync));

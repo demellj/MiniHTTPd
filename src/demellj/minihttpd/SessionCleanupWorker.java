@@ -23,7 +23,7 @@ public class SessionCleanupWorker implements Runnable {
     @Override
     public void run() {
         while (isRunning.get()) {
-            final Map.Entry<SocketChannel, Client> pair = sessions.searchEntries(1, entry -> {
+            final Map.Entry<SocketChannel, Client> pair = sessions.searchEntries(Long.MAX_VALUE, entry -> {
                 final Client client = entry.getValue();
 
                 final long now = System.nanoTime() / 1000000;

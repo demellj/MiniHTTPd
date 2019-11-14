@@ -16,13 +16,13 @@ public class Worker implements Runnable {
     private final AtomicBoolean isRunning;
     private final Selector selector;
     private final ThreadSafeResponder responder;
-    private final WorkerSync sync;
+    private final Object sync;
 
     Worker(ConcurrentHashMap<SocketChannel, Client> sessions,
            AtomicBoolean isRunning,
            Selector selector,
            ThreadSafeResponder responder,
-           WorkerSync sync) {
+           Object sync) {
         this.sessions = sessions;
         this.isRunning = isRunning;
         this.selector = selector;
@@ -36,32 +36,46 @@ public class Worker implements Runnable {
             try {
                 SelectableChannel ch = null;
 
-                selector.select();
-
                 // Synchronize on 'sync', simply because it is shared by all workers.
                 // Attempting to ensure a consistent view of selectedKeys.
                 synchronized (sync) {
-                    final Set<SelectionKey> selectedKeys = selector.selectedKeys();
-                    for (final SelectionKey key : selectedKeys) {
-                        if (key.isValid()) {
-                            // Perform "accept" while holding lock, to reduce unnecessary
-                            // contention between workers when a client connects.
-                            if (key.isAcceptable())
-                                performClientAccept((ServerSocketChannel) key.channel());
+                    if (selector.select() > 0) {
+                        final Set<SelectionKey> selectedKeys = selector.selectedKeys();
+                        for (final SelectionKey key : selectedKeys) {
+                            boolean needsClosing = false;
+                            try {
+                                if (key.isValid()) {
+                                    // Perform "accept" while holding lock, to reduce unnecessary
+                                    // contention between workers when a client connects.
+                                    if (key.isAcceptable())
+                                        performClientAccept((ServerSocketChannel) key.channel());
 
-                            if (key.isReadable())
-                                ch = key.channel();
+                                    if (key.isReadable())
+                                        ch = key.channel();
 
-                            selectedKeys.remove(key);
+                                    selectedKeys.remove(key);
+                                } else {
+                                    needsClosing = true;
+                                }
+                            } catch (CancelledKeyException ignored) {
+                                needsClosing = true;
+                            }
+
+                            if (needsClosing && key.channel() instanceof SocketChannel) {
+                                final SocketChannel chan = (SocketChannel) key.channel();
+                                final Client client = sessions.get(chan);
+                                sessions.remove(chan, client);
+                                chan.close();
+                            }
+                            break;
                         }
-                        break;
                     }
                 }
 
                 // Perform IO without blocking other threads
                 if (ch instanceof SocketChannel)
                     performClientRead((SocketChannel) ch);
-            } catch (IOException e) {
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         }
@@ -93,9 +107,10 @@ public class Worker implements Runnable {
     }
 
     private void performClientRead(SocketChannel chan) {
-        final Client client = sessions.remove(chan);
+        final Client client = sessions.get(chan);
 
-        if (client == null) return;
+        if (client == null || !sessions.remove(chan, client))
+            return;
 
         final LineBuffer lineBuffer = client.getBuffers().getLineBuffer();
 
