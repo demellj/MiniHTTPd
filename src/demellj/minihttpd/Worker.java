@@ -37,34 +37,34 @@ public class Worker implements Runnable {
                 SelectableChannel ch = null;
 
                 sync.signalAndWait();
-                if (selector.select() > 0) {
-                    // Synchronize on 'selector', but we are doing this to keep selectedKey
-                    // set in sync across workers.
-                    synchronized (selector) {
-                        final Set<SelectionKey> selectedKeys = selector.selectedKeys();
-                        for (final SelectionKey key : selectedKeys) {
-                            if (key.isValid()) {
-                                // Perform "accept" while holding lock, to reduce unnecessary
-                                // contention between workers when a client connects.
-                                if (key.isAcceptable())
-                                    performClientAccept((ServerSocketChannel) key.channel());
+                selector.select();
 
-                                if (key.isReadable()) {
-                                    ch = key.channel();
+                // Synchronize on 'sync', simply because it is shared by all workers.
+                // Attempting to ensure a consistent view of selectedKeys.
+                synchronized (sync) {
+                    final Set<SelectionKey> selectedKeys = selector.selectedKeys();
+                    for (final SelectionKey key : selectedKeys) {
+                        if (key.isValid()) {
+                            // Perform "accept" while holding lock, to reduce unnecessary
+                            // contention between workers when a client connects.
+                            if (key.isAcceptable())
+                                performClientAccept((ServerSocketChannel) key.channel());
 
-                                    // cancellation is required to reduce worker contention
-                                    // it gets re-registered on clientRead completion
-                                    key.cancel();
-                                }
+                            if (key.isReadable()) {
+                                ch = key.channel();
+
+                                // cancellation is required to reduce worker contention
+                                // it gets re-registered on clientRead completion
+                                key.cancel();
                             }
-                            break;
                         }
+                        break;
                     }
-
-                    // Perform IO without blocking other threads
-                    if (ch instanceof SocketChannel)
-                        performClientRead((SocketChannel) ch);
                 }
+
+                // Perform IO without blocking other threads
+                if (ch instanceof SocketChannel)
+                    performClientRead((SocketChannel) ch);
             } catch (IOException e) {
                 e.printStackTrace();
             }
