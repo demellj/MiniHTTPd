@@ -16,13 +16,13 @@ public class Worker implements Runnable {
     private final AtomicBoolean isRunning;
     private final Selector selector;
     private final ThreadSafeResponder responder;
-    private final Object sync;
+    private final WorkerSync sync;
 
     Worker(ConcurrentHashMap<SocketChannel, Client> sessions,
            AtomicBoolean isRunning,
            Selector selector,
            ThreadSafeResponder responder,
-           Object sync) {
+           WorkerSync sync) {
         this.sessions = sessions;
         this.isRunning = isRunning;
         this.selector = selector;
@@ -36,6 +36,8 @@ public class Worker implements Runnable {
             try {
                 SelectableChannel ch = null;
 
+                sync.signalAndWait();
+
                 // Synchronize on 'sync', simply because it is shared by all workers.
                 // Attempting to ensure a consistent view of selectedKeys.
                 synchronized (sync) {
@@ -44,19 +46,12 @@ public class Worker implements Runnable {
                         for (final SelectionKey key : selectedKeys) {
                             boolean needsClosing = false;
                             try {
-                                if (key.isValid()) {
-                                    // Perform "accept" while holding lock, to reduce unnecessary
-                                    // contention between workers when a client connects.
-                                    if (key.isAcceptable())
-                                        performClientAccept((ServerSocketChannel) key.channel());
-
-                                    if (key.isReadable())
-                                        ch = key.channel();
-
-                                    selectedKeys.remove(key);
+                                if (key.isValid() && key.isReadable()) {
+                                    ch = key.channel();
                                 } else {
                                     needsClosing = true;
                                 }
+                                selectedKeys.remove(key);
                             } catch (CancelledKeyException ignored) {
                                 needsClosing = true;
                             }
@@ -78,19 +73,6 @@ public class Worker implements Runnable {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-        }
-    }
-
-    private void performClientAccept(ServerSocketChannel serverChannel) {
-        try {
-            final SocketChannel chan = serverChannel.accept();
-            if (chan != null && sessions.putIfAbsent(chan, new Client(chan)) == null) {
-                chan.configureBlocking(false);
-                chan.register(selector, SelectionKey.OP_READ);
-                System.err.println(String.format("%s connected", chan.getRemoteAddress()));
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
         }
     }
 
