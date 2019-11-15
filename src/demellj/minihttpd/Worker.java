@@ -119,6 +119,7 @@ public class Worker implements Runnable {
             System.err.println(String.format("%s handled", addr));
 
             lineBuffer.read(chan);
+            sessions.put(chan, client);
             lineBuffer.flush();
 
             boolean keepAlive = false;
@@ -154,7 +155,6 @@ public class Worker implements Runnable {
 
             if (keepAlive) {
                 client.enableKeepAlive();
-                sessions.put(chan, client);
             } else {
                 performClientDisconnected(chan);
             }
