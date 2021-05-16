@@ -1,8 +1,8 @@
 <project name="MiniHTTPd" default="compile" basedir=".">
   <description>A lightweight embedded http server in Java</description>
-  <property name="src"     location="src"/>
+  <property name="src"     location="src/main/java"/>
   <property name="doc"     location="doc"/>
-  <property name="build"   location="bin"/>
+  <property name="build"   location="antbuild"/>
   <property name="dist"    location="dist"/>
   <property name="lib"     location="lib"/>
 
